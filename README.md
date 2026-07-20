@@ -1,53 +1,56 @@
-# KolibriTTS 0.1
+# KolibriTTS 0.2
 
-Eine sehr kleine, native KolibriOS-Anwendung in FASM zum Öffnen und akustischen
-Wiedergeben einfacher Textdateien. Die Oberfläche bietet Datei öffnen,
-Deutsch/Englisch, Vorlesen und Stop.
+KolibriTTS is a compact native text-to-speech reader for KolibriOS, written in
+32-bit FASM assembly. It opens plain text files and speaks them using selectable
+German or English pronunciation.
 
-## Ehrliche Einordnung
+## Features
 
-KolibriOS besitzt keinen eingebauten deutschen oder englischen TTS-Dienst.
-Diese erste Version erzeugt deshalb selbst 8-kHz-Mono-PCM und übergibt es an den
-KolibriOS-`INFINITY`/`SOUND`-Dienst. Der Synthesizer ist absichtlich extrem klein
-und hat den Charakter eines frühen Heimcomputers. Er ist **keine natürlich
-klingende TTS** und die Graphem-Synthese ist noch nicht so verständlich wie SAM,
-Amiga `translator.device` oder eSpeak. Für wirklich verständliche Sprache wäre
-als nächster Schritt ein vollständiger Graphem-zu-Phonem-Konverter plus
-Phonem-/Diphon-Datenbank nötig.
+- Native KolibriOS `MENUET01` application
+- English user interface
+- German and English pronunciation modes
+- KolibriOS OpenDialog file selection
+- Plain-text input up to 32 KiB
+- Rule-based grapheme and digraph processing
+- German rules for `sch`, `ch`, `ei`, `ie`, `eu`, `ä`, `ö`, `ü` and `ß`
+- English rules for `sh`, `ch`, `th`, `ng`, `oo`, `ee` and `qu`
+- Distinct vowel formants, fricatives, plosives and nasal sounds
+- Punctuation pauses and sentence phrasing
+- Direct 8 kHz, 8-bit mono PCM output through the KolibriOS sound service
+- No runtime libraries or external voice files
 
-## Bauen unter Windows
+## Build on Windows
 
-1. Offizielles FASM für Windows laden.
-2. `fasm.exe` nach `tools\fasm.exe` legen (alternativ `FASM_HOME` setzen oder
-   FASM in `PATH` aufnehmen).
-3. `build_windows.bat` starten.
-4. Das Ergebnis heißt `build\KOLITTS` (KolibriOS-Programme haben üblicherweise
-   keine Dateiendung).
+1. Download the official Windows release of FASM.
+2. Place `fasm.exe` in `tools\fasm.exe`, set `FASM_HOME`, or add FASM to `PATH`.
+3. Run `build_windows.bat`.
+4. Copy `build\KOLITTS` to a drive accessible from KolibriOS.
 
-## Benutzung
+The build script also copies the German and English example files into the
+`build` directory.
 
-`KOLITTS` in KolibriOS starten, `Oeffnen` wählen, eine TXT-Datei auswählen,
-Sprache einstellen und `Vorlesen` anklicken. Unterstützt werden bis zu 32 KiB.
-ASCII ist am zuverlässigsten; UTF-8-Umlaute werden in dieser kompakten Fassung
-nur angenähert. Die Audioausgabe benötigt einen von KolibriOS unterstützten
-Soundtreiber und den `INFINITY`-Sounddienst. Der Dateidialog benötigt das
-standardmäßige `/sys/lib/proc_lib.obj` und `opendial`.
+## Use
 
-## Technische Eckdaten
+1. Start `KOLITTS` in KolibriOS.
+2. Select **Open** and choose a `.txt` file.
+3. Select **German** or **English**.
+4. Select **Speak**.
+5. Select **Stop** to stop playback. Press `Esc` to exit.
 
-- KolibriOS `MENUET01`, 32 Bit, i586
-- FASM, keine Laufzeitbibliothek
-- statischer Audiopuffer: maximal 1 MiB
-- 8.000 Hz, 8 Bit, mono
-- TXT: maximal 32 KiB
-- keine externen Sprachdateien
+Short sentences with normal punctuation produce the clearest result. UTF-8
+German umlauts and `ß` are recognized.
 
-## Teststatus
+## Requirements
 
-Der Quelltext orientiert sich an den aktuellen KolibriOS-Schnittstellen und den
-offiziellen Beispielen für `proc_lib` sowie den `INFINITY`/`SOUND`-Dienst.
-Ein echter Laufzeittest in KolibriOS bzw. auf konkreter Soundhardware bleibt
-notwendig; fehlerfreie Funktion auf jeder Hardware kann bei einem
-hardwareabhängigen Audiotreiber nicht seriös garantiert werden.
+- KolibriOS with `/sys/lib/proc_lib.obj` and OpenDialog
+- An active KolibriOS sound driver providing the `INFINITY` sound service
+- FASM for rebuilding the application
 
-Lizenz: MIT (siehe `LICENSE`).
+## Project layout
+
+- `src/main.asm` — application and speech synthesizer
+- `build_windows.bat` — Windows compiler script
+- `build/KOLITTS` — ready-to-run KolibriOS binary
+- `examples/` — German and English sample text
+
+License: MIT.

@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 color 0E
-title KolibriTTS v0.1 - Windows Build
+title KolibriTTS v0.2 - Windows Build
 
 echo ============================================================
-echo   KolibriTTS v0.1 - FASM compiler script for Windows
+echo   KolibriTTS v0.2 - FASM compiler script for Windows
 echo ============================================================
 echo.
 

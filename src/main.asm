@@ -1,5 +1,4 @@
-; KolibriTTS 0.1 - compact bilingual retro speech reader for KolibriOS
-; FASM, 32-bit, i586.  UTF-8/CP1252 input (German umlauts are normalized).
+; KolibriTTS 0.2
 
 use32
 org 0
@@ -218,10 +217,6 @@ quit:
   call stop_audio_raw
   mcall -1
 
-; ---------------------------------------------------------------------------
-; Tiny retro synthesizer. Each grapheme becomes a short voiced/noise gesture.
-; DE and EN use different duration/pitch tables. This deliberately favours
-; tiny size and old-PC character over naturalness.
 synth_text:
   mov esi,text_buffer
   mov edi,pcm_buffer
@@ -240,73 +235,327 @@ synth_text:
   cmp al,' '
   je .pause_short
   cmp al,'.'
-  je .pause_long
+  je .sentence
+  cmp al,'!'
+  je .sentence
+  cmp al,'?'
+  je .question
   cmp al,','
   je .pause_mid
-  ; fold ASCII to lower case
   cmp al,'A'
-  jb .classify
+  jb .utf8
   cmp al,'Z'
-  ja .classify
+  ja .utf8
   or al,20h
-.classify:
-  ; German UTF-8 lead bytes are skipped; following byte still gives a gesture
-  cmp al,0C0h
-  jae .next
-  mov bl,al
-  ; vowels => voiced, consonants => noise/voiced alternating
-  cmp al,'a'
-  je .vowel
+.utf8:
+  cmp al,0C3h
+  jne .digraph
+  mov al,[esi]
+  inc esi
+  cmp al,0A4h
+  je .a
+  cmp al,0B6h
+  je .o
+  cmp al,0BCh
+  je .u
+  cmp al,09Fh
+  je .s
+  jmp .next
+.digraph:
+  mov ah,[esi]
+  cmp ah,'A'
+  jb @f
+  cmp ah,'Z'
+  ja @f
+  or ah,20h
+@@:
+  cmp byte [language],0
+  jne .english
+  cmp al,'s'
+  jne @f
+  cmp ah,'c'
+  jne .s
+  mov ah,[esi+1]
+  or ah,20h
+  cmp ah,'h'
+  jne .s
+  add esi,2
+  jmp .sh
+@@:
+  cmp al,'c'
+  jne @f
+  cmp ah,'h'
+  jne .k
+  inc esi
+  jmp .ch
+@@:
   cmp al,'e'
-  je .vowel
+  jne @f
+  cmp ah,'i'
+  jne .e
+  inc esi
+  jmp .ai
+@@:
   cmp al,'i'
-  je .vowel_hi
+  jne @f
+  cmp ah,'e'
+  jne .i
+  inc esi
+  jmp .ii
+@@:
+  cmp al,'e'
+  jne @f
+  cmp ah,'u'
+  je .consume_oi
+  cmp ah,'a'
+  jne .e
+.consume_oi:
+  inc esi
+  jmp .oi
+@@:
+  cmp al,'z'
+  je .ts
+  cmp al,'w'
+  je .v
+  cmp al,'v'
+  je .f
+  cmp al,'j'
+  je .y
+  jmp .single
+.english:
+  cmp al,'s'
+  jne @f
+  cmp ah,'h'
+  jne .s
+  inc esi
+  jmp .sh
+@@:
+  cmp al,'c'
+  jne @f
+  cmp ah,'h'
+  jne .k
+  inc esi
+  jmp .ch_stop
+@@:
+  cmp al,'t'
+  jne @f
+  cmp ah,'h'
+  jne .t
+  inc esi
+  jmp .th
+@@:
+  cmp al,'n'
+  jne @f
+  cmp ah,'g'
+  jne .n
+  inc esi
+  jmp .ng
+@@:
   cmp al,'o'
-  je .vowel_lo
+  jne @f
+  cmp ah,'o'
+  jne .o
+  inc esi
+  jmp .u
+@@:
+  cmp al,'e'
+  jne @f
+  cmp ah,'e'
+  jne .e
+  inc esi
+  jmp .ii
+@@:
+  cmp al,'q'
+  jne @f
+  cmp ah,'u'
+  jne .k
+  inc esi
+  call phon_k
+  jmp .w
+@@:
+.single:
+  cmp al,'a'
+  je .a
+  cmp al,'e'
+  je .e
+  cmp al,'i'
+  je .i
+  cmp al,'o'
+  je .o
   cmp al,'u'
-  je .vowel_lo
+  je .u
   cmp al,'y'
-  je .vowel_hi
-  test al,1
-  jz .noise
-  mov ecx,420
-  mov dl,17
-  add dl,bl
-  call emit_voiced
+  je .y
+  cmp al,'b'
+  je .b
+  cmp al,'c'
+  je .k
+  cmp al,'d'
+  je .d
+  cmp al,'f'
+  je .f
+  cmp al,'g'
+  je .g
+  cmp al,'h'
+  je .h
+  cmp al,'j'
+  je .j
+  cmp al,'k'
+  je .k
+  cmp al,'l'
+  je .l
+  cmp al,'m'
+  je .m
+  cmp al,'n'
+  je .n
+  cmp al,'p'
+  je .p
+  cmp al,'q'
+  je .k
+  cmp al,'r'
+  je .r
+  cmp al,'s'
+  je .s
+  cmp al,'t'
+  je .t
+  cmp al,'v'
+  je .v
+  cmp al,'w'
+  je .w
+  cmp al,'x'
+  je .x
+  cmp al,'z'
+  je .z
+  jmp .next
+
+.a: mov al,0
+  jmp .vowel
+.e: mov al,1
+  jmp .vowel
+.i: mov al,2
+  jmp .vowel
+.o: mov al,3
+  jmp .vowel
+.u: mov al,4
+  jmp .vowel
+.y: mov al,2
+  jmp .short_vowel
+.ai:
+  mov al,0
+  call phon_vowel
+  mov al,2
+  jmp .short_vowel
+.oi:
+  mov al,3
+  call phon_vowel
+  mov al,2
+  jmp .short_vowel
+.ii:
+  mov al,2
+  mov ecx,900
+  call emit_formant
   jmp .next
 .vowel:
-  mov ecx,720
-  mov dl,29
-  cmp byte [language],0
-  je @f
-  mov dl,31
-@@:
-  call emit_voiced
+  mov ecx,650
+  call emit_formant
   jmp .next
-.vowel_hi:
-  mov ecx,620
-  mov dl,23
-  call emit_voiced
+.short_vowel:
+  mov ecx,420
+  call emit_formant
   jmp .next
-.vowel_lo:
-  mov ecx,760
-  mov dl,35
-  call emit_voiced
+
+.b: call phon_b
   jmp .next
-.noise:
-  mov ecx,260
+.d: call phon_d
+  jmp .next
+.g: call phon_g
+  jmp .next
+.p: call phon_p
+  jmp .next
+.t: call phon_t
+  jmp .next
+.k: call phon_k
+  jmp .next
+.f: mov ecx,420
   call emit_noise
   jmp .next
+.s: mov ecx,500
+  call emit_noise_hi
+  jmp .next
+.sh: mov ecx,620
+  call emit_noise
+  jmp .next
+.ch: mov ecx,480
+  call emit_noise
+  jmp .next
+.th: mov ecx,360
+  call emit_noise
+  jmp .next
+.h: mov ecx,260
+  call emit_noise_soft
+  jmp .next
+.v: mov ecx,250
+  call emit_noise
+  mov al,1
+  jmp .nasal
+.z: mov ecx,240
+  call emit_noise_hi
+  mov al,1
+  jmp .nasal
+.j: mov ecx,180
+  call emit_noise
+  mov al,1
+  jmp .nasal
+.m: mov al,4
+  jmp .nasal
+.n: mov al,1
+  jmp .nasal
+.ng: mov al,3
+  jmp .nasal
+.l: mov al,2
+  jmp .nasal
+.r: mov al,0
+.nasal:
+  mov ecx,360
+  call emit_murmur
+  jmp .next
+.w:
+  mov al,4
+  mov ecx,300
+  call emit_formant
+  jmp .next
+.x:
+  call phon_k
+  jmp .s
+.ts:
+  call phon_t
+  jmp .s
+.ch_stop:
+  call phon_t
+  jmp .sh
 .pause_short:
-  mov ecx,280
+  mov ecx,180
   jmp .silence
 .pause_mid:
-  mov ecx,520
+  mov ecx,420
   jmp .silence
 .pause_long:
-  mov ecx,900
+  mov ecx,760
+  jmp .silence
+.sentence:
+  mov byte [pitch_bias],0
+  jmp .pause_long
+.question:
+  mov byte [pitch_bias],2
+  jmp .pause_long
 .silence:
-  xor eax,eax
+  mov eax,ebp
+  sub eax,edi
+  cmp ecx,eax
+  jbe @f
+  mov ecx,eax
+@@:
+  mov al,128
   rep stosb
   jmp .next
 .done:
@@ -314,32 +563,62 @@ synth_text:
   sub eax,pcm_buffer
   ret
 
-; DL is pitch divider, ECX sample count, EDI destination.  Two square partials
-; plus a gentle envelope make a compact, speech-like buzzer/formant timbre.
-emit_voiced:
-  xor ebx,ebx
+phon_vowel:
+  mov ecx,520
+emit_formant:
+  push esi
+  movzx eax,al
+  shl eax,2
+  lea esi,[vowel_table+eax]
+  mov al,[esi]
+  mov [div1],al
+  mov al,[esi+1]
+  mov [div2],al
+  mov al,[esi+2]
+  mov [div3],al
   xor eax,eax
+  xor ebx,ebx
+  xor edx,edx
 .loop:
+  inc al
+  cmp al,[div1]
+  jb @f
+  xor ah,1
+  xor al,al
+@@:
   inc bl
-  cmp bl,dl
+  cmp bl,[div2]
   jb @f
   xor bh,1
   xor bl,bl
 @@:
-  mov al,112
+  inc dl
+  cmp dl,[div3]
+  jb @f
+  xor dh,1
+  xor dl,dl
+@@:
+  push eax
+  mov al,96
+  test ah,1
+  jz @f
+  add al,30
+@@:
   test bh,1
   jz @f
-  mov al,144
+  add al,18
 @@:
-  test bl,2
+  test dh,1
   jz @f
-  add al,8
+  add al,10
 @@:
   stosb
+  pop eax
   cmp edi,ebp
   jae .out
   loop .loop
 .out:
+  pop esi
   ret
 
 emit_noise:
@@ -348,13 +627,90 @@ emit_noise:
   imul eax,1103515245
   add eax,12345
   mov [noise_seed],eax
-  shr eax,25
+  shr eax,26
   add al,96
   stosb
   cmp edi,ebp
   jae .out
   loop .loop
 .out:
+  ret
+
+emit_noise_hi:
+.loop:
+  mov eax,[noise_seed]
+  imul eax,1103515245
+  add eax,12345
+  mov [noise_seed],eax
+  shr eax,26
+  xor al,3Fh
+  add al,96
+  stosb
+  cmp edi,ebp
+  jae .out
+  loop .loop
+.out: ret
+
+emit_noise_soft:
+.loop:
+  mov eax,[noise_seed]
+  imul eax,1103515245
+  add eax,12345
+  mov [noise_seed],eax
+  shr eax,28
+  add al,120
+  stosb
+  cmp edi,ebp
+  jae .out
+  loop .loop
+.out: ret
+
+emit_murmur:
+  push eax
+  mov ecx,ecx
+  call emit_formant
+  pop eax
+  ret
+
+phon_p:
+  mov ecx,90
+  call emit_silence
+  mov ecx,90
+  jmp emit_noise
+phon_t:
+  mov ecx,70
+  call emit_silence
+  mov ecx,110
+  jmp emit_noise_hi
+phon_k:
+  mov ecx,100
+  call emit_silence
+  mov ecx,130
+  jmp emit_noise
+phon_b:
+  call phon_p
+  mov al,4
+  mov ecx,170
+  jmp emit_formant
+phon_d:
+  call phon_t
+  mov al,1
+  mov ecx,170
+  jmp emit_formant
+phon_g:
+  call phon_k
+  mov al,3
+  mov ecx,180
+  jmp emit_formant
+emit_silence:
+  mov eax,ebp
+  sub eax,edi
+  cmp ecx,eax
+  jbe @f
+  mov ecx,eax
+@@:
+  mov al,128
+  rep stosb
   ret
 
 ; ---------------------------------------------------------------------------
@@ -500,27 +856,37 @@ dialog_com_name db 'KTT00001_open_dialog',0
 default_dir db '/tmp0/1',0
 dialog_program db '/sys/File managers/opendial',0
 
-window_title db 'KolibriTTS 0.1 - Deutsch / English',0
-file_label db 'Textdatei:',0
-file_name db '(keine Datei geladen)',0, 64 dup 0
+window_title db 'KolibriTTS 0.2 - German / English Speech',0
+file_label db 'Text file:',0
+file_name db '(no file loaded)',0, 64 dup 0
 status_label db 'Status:',0
-status_ready db 'Bereit',0
-status_loaded db 'Text geladen',0
-status_speaking db 'Wiedergabe laeuft',0
-status_stopped db 'Gestoppt',0
-status_no_text db 'Bitte zuerst eine Textdatei laden',0
-status_no_sound db 'KolibriOS-Sounddienst nicht verfuegbar',0
-status_no_dialog db 'OpenDialog nicht verfuegbar',0
-status_read_error db 'Datei konnte nicht gelesen werden',0
+status_ready db 'Ready',0
+status_loaded db 'Text loaded',0
+status_speaking db 'Speaking',0
+status_stopped db 'Stopped',0
+status_no_text db 'Open a text file first',0
+status_no_sound db 'KolibriOS sound service unavailable',0
+status_no_dialog db 'OpenDialog unavailable',0
+status_read_error db 'Could not read file',0
 status_text dd status_ready
-txt_open db 'Oeffnen',0
-txt_speak db 'Vorlesen',0
-txt_de db 'Deutsch',0
+txt_open db 'Open',0
+txt_speak db 'Speak',0
+txt_de db 'German',0
 txt_en db 'English',0
 txt_stop db 'Stop',0
-hint db 'TXT bis 32 KiB | Retro-Stimme | ESC beendet',0
+hint db 'TXT up to 32 KiB | ESC exits',0
 
 language db 0
+pitch_bias db 0
+div1 db 0
+div2 db 0
+div3 db 0
+vowel_table:
+  db 6,3,2,0
+  db 9,3,1,0
+  db 13,2,1,0
+  db 7,5,2,0
+  db 11,7,2,0
 align 4
 text_len dd 0
 pcm_len dd 0
