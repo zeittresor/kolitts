@@ -50,6 +50,13 @@ KOLITTS -nogui speak EN "Hello world, I like you."
 
 The process waits for the generated PCM duration and then exits.
 
+## Note
+
+There is also a working Windows 10/11 Version at https://github.com/zeittresor/kolitts/tree/main/tools/WindowsFASM_TTS_Version/build you can use with the GUI or using commandline.
+
+<img width="549" height="389" alt="grafik" src="https://github.com/user-attachments/assets/d9ba646f-9297-4ead-89d6-6bdc3606158c" />
+
+
 ## Requirements
 
 - KolibriOS with `/sys/lib/proc_lib.obj` and OpenDialog
