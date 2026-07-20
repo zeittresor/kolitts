@@ -1,4 +1,4 @@
-# KolibriTTS 0.3
+# KolibriTTS 0.6
 
 KolibriTTS is a compact native text-to-speech reader for KolibriOS, written in
 32-bit FASM assembly. It opens plain text files and speaks them using selectable
@@ -14,7 +14,8 @@ German or English pronunciation.
 - Rule-based grapheme and digraph processing
 - German rules for `sch`, `ch`, `ei`, `ie`, `eu`, `ä`, `ö`, `ü` and `ß`
 - English rules for `sh`, `ch`, `th`, `ng`, `oo`, `ee` and `qu`
-- Distinct vowel formants, fricatives, plosives and nasal sounds
+- Embedded German and English 8 kHz allophone voice banks
+- Distinct vowels, fricatives, plosives and nasal sounds
 - Punctuation pauses and sentence phrasing
 - Direct 8 kHz, 8-bit mono PCM output through the KolibriOS sound service
 - No runtime libraries or external voice files
@@ -39,6 +40,15 @@ The build script also copies the German and English example files into the
 
 Short sentences with normal punctuation produce the clearest result. UTF-8
 German umlauts and `ß` are recognized.
+
+## Command line
+
+```text
+KOLITTS -nogui speak DE "Hallo Welt, ich mag dich."
+KOLITTS -nogui speak EN "Hello world, I like you."
+```
+
+The process waits for the generated PCM duration and then exits.
 
 ## Requirements
 

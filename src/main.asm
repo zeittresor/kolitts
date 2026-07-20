@@ -1,4 +1,4 @@
-; KolibriTTS 0.3
+; KolibriTTS 0.6
 
 use32
 org 0
@@ -40,6 +40,7 @@ PCM_STATIC=20000000h
 start:
   mcall 40,100111b         ; redraw,key,button,mouse
   call init_sound
+  call try_cli
   call init_dialog
 .loop:
   mcall 10
@@ -77,6 +78,115 @@ redraw:
   mcall 4,14 shl 16+181,80000000h,hint
   mcall 12,2
   jmp start.loop
+
+try_cli:
+  mov esi,params
+  cmp byte [esi],0
+  je .no
+  call cli_skip_spaces
+  mov edi,cli_nogui
+  call cli_match
+  jc .no
+  call cli_skip_spaces
+  mov edi,cli_speak_word
+  call cli_match
+  jc .no
+  call cli_skip_spaces
+  mov al,[esi]
+  or al,20h
+  cmp al,'d'
+  jne @f
+  mov byte [language],0
+  jmp .lang_ok
+@@:
+  cmp al,'e'
+  jne .no
+  mov byte [language],1
+.lang_ok:
+  add esi,2
+  call cli_skip_spaces
+  cmp byte [esi],'"'
+  jne @f
+  inc esi
+@@:
+  mov edi,text_buffer
+  mov ecx,TEXT_MAX-1
+  xor edx,edx
+.copy:
+  lodsb
+  test al,al
+  jz .copied
+  cmp al,'"'
+  je .copied
+  stosb
+  inc edx
+  loop .copy
+.copied:
+  mov byte [edi],0
+  mov [text_len],edx
+  test edx,edx
+  jz .exit
+  cmp dword [sound_handle],0
+  je .exit
+  call synth_text
+  test eax,eax
+  jz .exit
+  mov [pcm_len],eax
+  push stream_handle
+  push eax
+  push PCM_FMT+PCM_STATIC
+  call sound_create
+  test eax,eax
+  jnz .exit
+  xor eax,eax
+  push dword [pcm_len]
+  push pcm_buffer
+  push eax
+  push dword [stream_handle]
+  call sound_set
+  push 0
+  push dword [stream_handle]
+  call sound_play
+  mov eax,[pcm_len]
+  add eax,79
+  xor edx,edx
+  mov ebx,80
+  div ebx
+  add eax,25
+  mov ebx,eax
+  mov eax,5
+  int 40h
+  call stop_audio_raw
+.exit:
+  mcall -1
+.no:
+  ret
+
+cli_skip_spaces:
+  cmp byte [esi],' '
+  jne @f
+  inc esi
+  jmp cli_skip_spaces
+@@: ret
+
+cli_match:
+.loop:
+  mov al,[edi]
+  test al,al
+  jz .ok
+  mov ah,[esi]
+  or ah,20h
+  cmp al,ah
+  jne .bad
+  inc esi
+  inc edi
+  jmp .loop
+.ok:
+  clc
+  ret
+.bad:
+  stc
+  ret
 
 key_event:
   mcall 2
@@ -259,9 +369,9 @@ synth_text:
   cmp al,0A4h
   je .a
   cmp al,0B6h
-  je .o
+  je .oev
   cmp al,0BCh
-  je .u
+  je .uev
   cmp al,09Fh
   je .s
   jmp .next
@@ -442,6 +552,10 @@ synth_text:
   jmp .vowel
 .u: mov al,4
   jmp .vowel
+.oev: mov al,5
+  jmp .vowel
+.uev: mov al,6
+  jmp .vowel
 .y: mov al,2
   jmp .short_vowel
 .ai:
@@ -468,74 +582,80 @@ synth_text:
   call emit_formant
   jmp .next
 
-.b: call phon_b
+.b: mov al,9
+  call emit_sample
   jmp .next
-.d: call phon_d
+.d: mov al,11
+  call emit_sample
   jmp .next
-.g: call phon_g
+.g: mov al,13
+  call emit_sample
   jmp .next
-.p: call phon_p
+.p: mov al,8
+  call emit_sample
   jmp .next
-.t: call phon_t
+.t: mov al,10
+  call emit_sample
   jmp .next
-.k: call phon_k
+.k: mov al,12
+  call emit_sample
   jmp .next
-.f: mov ecx,420
-  call emit_noise
+.f: mov al,14
+  call emit_sample
   jmp .next
-.s: mov ecx,500
-  call emit_noise_hi
+.s: mov al,16
+  call emit_sample
   jmp .next
-.sh: mov ecx,620
-  call emit_noise
+.sh: mov al,18
+  call emit_sample
   jmp .next
-.ch: mov ecx,480
-  call emit_noise
+.ch: mov al,19
+  call emit_sample
   jmp .next
-.th: mov ecx,360
-  call emit_noise
+.th: mov al,28
+  call emit_sample
   jmp .next
-.h: mov ecx,260
-  call emit_noise_soft
+.h: mov al,20
+  call emit_sample
   jmp .next
-.v: mov ecx,250
-  call emit_noise
-  mov al,1
-  jmp .nasal
-.z: mov ecx,240
-  call emit_noise_hi
-  mov al,1
-  jmp .nasal
-.j: mov ecx,180
-  call emit_noise
-  mov al,1
-  jmp .nasal
-.m: mov al,4
-  jmp .nasal
-.n: mov al,1
-  jmp .nasal
-.ng: mov al,3
-  jmp .nasal
-.l: mov al,2
-  jmp .nasal
-.r: mov al,0
-.nasal:
-  mov ecx,360
-  call emit_murmur
+.v: mov al,15
+  call emit_sample
   jmp .next
-.w:
-  mov al,4
-  mov ecx,300
-  call emit_formant
+.z: mov al,17
+  call emit_sample
+  jmp .next
+.j: mov al,26
+  call emit_sample
+  jmp .next
+.m: mov al,21
+  call emit_sample
+  jmp .next
+.n: mov al,22
+  call emit_sample
+  jmp .next
+.ng: mov al,23
+  call emit_sample
+  jmp .next
+.l: mov al,24
+  call emit_sample
+  jmp .next
+.r: mov al,25
+  call emit_sample
+  jmp .next
+.w: mov al,27
+  call emit_sample
   jmp .next
 .x:
-  call phon_k
+  mov al,12
+  call emit_sample
   jmp .s
 .ts:
-  call phon_t
+  mov al,10
+  call emit_sample
   jmp .s
 .ch_stop:
-  call phon_t
+  mov al,10
+  call emit_sample
   jmp .sh
 .pause_short:
   mov ecx,180
@@ -574,58 +694,29 @@ synth_text:
 phon_vowel:
   mov ecx,520
 emit_formant:
-  push esi
   movzx eax,al
-  shl eax,2
-  lea esi,[vowel_table+eax]
-  mov al,[esi]
-  mov [div1],al
-  mov al,[esi+1]
-  mov [div2],al
-  mov al,[esi+2]
-  mov [div3],al
-  xor eax,eax
-  xor ebx,ebx
-  xor edx,edx
-.loop:
-  inc al
-  cmp al,[div1]
-  jb @f
-  xor ah,1
-  xor al,al
+  jmp emit_sample
+
+emit_sample:
+  push esi
+  push ecx
+  movzx eax,al
+  shl eax,3
+  mov edx,voice_table_de
+  cmp byte [language],0
+  je @f
+  mov edx,voice_table_en
 @@:
-  inc bl
-  cmp bl,[div2]
-  jb @f
-  xor bh,1
-  xor bl,bl
+  mov esi,[edx+eax]
+  mov ecx,[edx+eax+4]
+  mov eax,ebp
+  sub eax,edi
+  cmp ecx,eax
+  jbe @f
+  mov ecx,eax
 @@:
-  inc dl
-  cmp dl,[div3]
-  jb @f
-  xor dh,1
-  xor dl,dl
-@@:
-  push eax
-  mov al,96
-  test ah,1
-  jz @f
-  add al,30
-@@:
-  test bh,1
-  jz @f
-  add al,18
-@@:
-  test dh,1
-  jz @f
-  add al,10
-@@:
-  stosb
-  pop eax
-  cmp edi,ebp
-  jae .out
-  loop .loop
-.out:
+  rep movsb
+  pop ecx
   pop esi
   ret
 
@@ -864,7 +955,7 @@ dialog_com_name db 'KTT00001_open_dialog',0
 default_dir db '/tmp0/1',0
 dialog_program db '/sys/File managers/opendial',0
 
-window_title db 'KolibriTTS 0.3 - German / English Speech',0
+window_title db 'KolibriTTS 0.6 - German / English Speech',0
 file_label db 'Text file:',0
 file_name db '(no file loaded)',0, 64 dup 0
 status_label db 'Status:',0
@@ -883,6 +974,8 @@ txt_de db 'German',0
 txt_en db 'English',0
 txt_stop db 'Stop',0
 hint db 'TXT up to 32 KiB | ESC exits',0
+cli_nogui db '-nogui',0
+cli_speak_word db 'speak',0
 
 language db 0
 pitch_bias db 0
@@ -904,6 +997,7 @@ stream_handle dd 0
 proc_lib dd 0
 dialog_init dd 0
 dialog_start dd 0
+include 'src/voice_bank.inc'
 params rb 256
 image_end:
 
