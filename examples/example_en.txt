@@ -1,0 +1,2 @@
+Hello Kolibri OS. This is a tiny English retro speech demonstration.
+It is deliberately small and sounds like an early home computer.
