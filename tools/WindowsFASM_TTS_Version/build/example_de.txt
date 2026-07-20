@@ -1,0 +1,2 @@
+Hallo Windows. Dies ist eine kleine deutsche Sprachausgabe in Assembler.
+Kurze Saetze mit Satzzeichen klingen am deutlichsten.

@@ -1,0 +1,2 @@
+Place the official Windows fasm.exe here, or use FASM_HOME/PATH.
+https://flatassembler.net/download.php

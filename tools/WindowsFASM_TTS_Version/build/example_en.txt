@@ -1,0 +1,2 @@
+Hello Windows. This is a small English speech synthesizer written in assembly.
+Short sentences with punctuation produce the clearest speech.
