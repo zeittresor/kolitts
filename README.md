@@ -1,4 +1,4 @@
-# KolibriTTS 0.2
+# KolibriTTS 0.3
 
 KolibriTTS is a compact native text-to-speech reader for KolibriOS, written in
 32-bit FASM assembly. It opens plain text files and speaks them using selectable

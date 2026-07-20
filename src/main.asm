@@ -1,4 +1,4 @@
-; KolibriTTS 0.2
+; KolibriTTS 0.3
 
 use32
 org 0
@@ -218,6 +218,10 @@ quit:
   mcall -1
 
 synth_text:
+  push ebx
+  push esi
+  push edi
+  push ebp
   mov esi,text_buffer
   mov edi,pcm_buffer
   mov ebp,pcm_buffer+PCM_MAX
@@ -561,6 +565,10 @@ synth_text:
 .done:
   mov eax,edi
   sub eax,pcm_buffer
+  pop ebp
+  pop edi
+  pop esi
+  pop ebx
   ret
 
 phon_vowel:
@@ -856,7 +864,7 @@ dialog_com_name db 'KTT00001_open_dialog',0
 default_dir db '/tmp0/1',0
 dialog_program db '/sys/File managers/opendial',0
 
-window_title db 'KolibriTTS 0.2 - German / English Speech',0
+window_title db 'KolibriTTS 0.3 - German / English Speech',0
 file_label db 'Text file:',0
 file_name db '(no file loaded)',0, 64 dup 0
 status_label db 'Status:',0
